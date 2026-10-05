@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AR Hiro - Twinkling Stars Around Earth</title>
+
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+
+  <!-- AR.js -->
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: Arial, sans-serif;
+    }
+
+    #info {
+      position: fixed;
+      z-index: 999;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 14px;
+      border-radius: 20px;
+      color: white;
+      background: rgba(0, 0, 0, 0.55);
+      font-size: 14px;
+      text-align: center;
+      pointer-events: none;
+      backdrop-filter: blur(4px);
+    }
+  </style>
+</head>
+
+<body>
+  <div id="info">📷 ส่องกล้องไปที่ Hiro Marker</div>
+
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: false"
+    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
+    arjs="sourceType: webcam; debugUIEnabled: false; trackingMethod: best;"
+    gesture-detector
+  >
+
+    <!-- แสง -->
+    <a-entity light="type: ambient; intensity: 1.8; color: #ffffff"></a-entity>
+    <a-entity
+      light="type: point; intensity: 3; distance: 10; color: #ffffff"
+      position="0 3 4">
+    </a-entity>
+
+    <!-- Hiro Marker -->
+    <a-marker
+      id="hiro-marker"
+      preset="hiro"
+      smooth="true"
+      smoothCount="8"
+      smoothTolerance="0.01"
+      smoothThreshold="5"
+    >
+
+      <!-- กลุ่มโลก + ดาว -->
+      <a-entity id="space-system">
+
+        <!-- โลก -->
+        <a-sphere
+          id="earth"
+          position="0 0.45 0"
+          radius="0.62"
+          segments-width="48"
+          segments-height="32"
+          material="
+            color: #1597e5;
+            roughness: 0.55;
+            metalness: 0.05;
+            opacity: 0.98
+          "
+          animation="
+            property: rotation;
+            to: 0 360 0;
+            dur: 16000;
+            easing: linear;
+            loop: true
+          "
+        ></a-sphere>
+
+        <!-- ชั้นบรรยากาศ -->
+        <a-sphere
+          position="0 0.45 0"
+          radius="0.69"
+          material="
+            color: #4fd8ff;
+            transparent: true;
+            opacity: 0.14;
+            side: double;
+            shader: flat
+          "
+          animation="
+            property: scale;
+            from: 1 1 1;
+            to: 1.06 1.06 1.06;
+            dur: 1800;
+            dir: alternate;
+            easing: easeInOutSine;
+            loop: true
+          "
+        ></a-sphere>
+
+        <!-- วงแหวนบาง ๆ รอบโลก -->
+        <a-torus
+          position="0 0.45 0"
+          rotation="72 0 18"
+          radius="0.92"
+          radius-tubular="0.008"
+          material="color: #75ddff; transparent: true; opacity: 0.55"
+          animation="
+            property: rotation;
+            to: 72 360 18;
+            dur: 12000;
+            easing: linear;
+            loop: true
+          "
+        ></a-torus>
+
+        <!-- กลุ่มดาว -->
+        <a-entity id="stars"></a-entity>
+
+        <!-- ดาวด้านหน้าสำหรับเพิ่มความเด่น -->
+        <a-entity id="front-sparkles"></a-entity>
+
+      </a-entity>
+    </a-marker>
+
+    <!-- กล้อง AR -->
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <script>
+    /*
+      สร้างดาวหลายดวงรอบโลกแบบ procedural
+      ไม่ต้องใช้ไฟล์รูปภาพภายนอก
+    */
+
+    const starsContainer = document.querySelector('#stars');
+    const sparkleContainer = document.querySelector('#front-sparkles');
+
+    // สุ่มค่าในช่วง min - max
+    function random(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    // สร้างดาวแต่ละดวง
+    function createStar(index) {
+      const star = document.createElement('a-entity');
+
+      // กระจายดาวเป็นวงกลม/ทรงกลมรอบโลก
+      const angle = (index / 34) * Math.PI * 2 + random(-0.18, 0.18);
+      const radius = random(1.0, 1.65);
+      const height = random(-0.65, 1.55);
+
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const y = height;
+
+      const size = random(0.025, 0.075);
+      const delay = Math.floor(random(0, 1800));
+      const duration = Math.floor(random(650, 1700));
+
+      star.setAttribute('position', `${x.toFixed(3)} ${y.toFixed(3)} ${z.toFixed(3)}`);
+
+      /*
+        ดาวหลักเป็นทรง tetrahedron ทำให้ดูคล้ายดาว 4 แฉก
+      */
+      star.innerHTML = `
+        <a-octahedron
+          radius="${size.toFixed(3)}"
+          color="#fffbd6"
+          material="
+            shader: standard;
+            emissive: #fff4a8;
+            emissiveIntensity: 2.8;
+            metalness: 0;
+            roughness: 0.15
+          "
+          animation="
+            property: rotation;
+            to: 360 360 360;
+            dur: ${Math.floor(random(2500, 5500))};
+            easing: linear;
+            loop: true
+          "
+        ></a-octahedron>
+
+        <!-- แสงฟุ้งรอบดาว -->
+        <a-sphere
+          radius="${(size * 2.8).toFixed(3)}"
+          material="
+            color: #fff7ad;
+            transparent: true;
+            opacity: 0.18;
+            shader: flat
+          "
+          animation="
+            property: scale;
+            from: 0.65 0.65 0.65;
+            to: 1.55 1.55 1.55;
+            dur: ${duration};
+            delay: ${delay};
+            dir: alternate;
+            easing: easeInOutSine;
+            loop: true
+          "
+        ></a-sphere>
+
+        <!-- วิ๊งแบบแสงกากบาท -->
+        <a-plane
+          width="${(size * 5.0).toFixed(3)}"
+          height="${(size * 0.42).toFixed(3)}"
+          rotation="0 0 45"
+          material="
+            color: #ffffff;
+            transparent: true;
+            opacity: 0.0;
+            shader: flat;
+            side: double
+          "
+          animation="
+            property: material.opacity;
+            from: 0.0;
+            to: 0.85;
+            dur: ${Math.floor(duration * 0.55)};
+            delay: ${delay};
+            dir: alternate;
+            easing: easeInOutSine;
+            loop: true
+          "
+        ></a-plane>
+
+        <a-plane
+          width="${(size * 5.0).toFixed(3)}"
+          height="${(size * 0.42).toFixed(3)}"
+          rotation="0 0 -45"
+          material="
+            color: #fff9c4;
+            transparent: true;
+            opacity: 0.0;
+            shader: flat;
+            side: double
+          "
+          animation="
+            property: material.opacity;
+            from: 0.0;
+            to: 0.75;
+            dur: ${Math.floor(duration * 0.5)};
+            delay: ${delay + 120};
+            dir: alternate;
+            easing: easeInOutSine;
+            loop: true
+          "
+        ></a-plane>
+      `;
+
+      starsContainer.appendChild(star);
+    }
+
+    // ดาวหลักรอบโลก
+    for (let i = 0; i < 34; i++) {
+      createStar(i);
+    }
+
+    // ดาวเล็กระยะใกล้ เพื่อให้เกิดความรู้สึกว่า "ล้อมรอบโลก"
+    for (let i = 0; i < 18; i++) {
+      const star = document.createElement('a-sphere');
+
+      const angle = random(0, Math.PI * 2);
+      const radius = random(0.78, 1.12);
+      const y = random(-0.15, 1.25);
+
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const size = random(0.012, 0.035);
+
+      star.setAttribute('position', `${x} ${y} ${z}`);
+      star.setAttribute('radius', size);
+      star.setAttribute('material',
+        'color: #ffffff; shader: flat; emissive: #fff7aa; emissiveIntensity: 3'
+      );
+
+      star.setAttribute('animation', `
+        property: scale;
+        from: 0.4 0.4 0.4;
+        to: 2.0 2.0 2.0;
+        dur: ${Math.floor(random(500, 1300))};
+        delay: ${Math.floor(random(0, 1500))};
+        dir: alternate;
+        easing: easeInOutSine;
+        loop: true
+      `);
+
+      sparkleContainer.appendChild(star);
+    }
+
+    /*
+      เพิ่มดาวตก/ประกายเป็นช่วง ๆ
+    */
+    function createFlash() {
+      const flash = document.createElement('a-entity');
+
+      const angle = random(0, Math.PI * 2);
+      const radius = random(1.15, 1.55);
+
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const y = random(0.0, 1.35);
+
+      flash.setAttribute('position', `${x} ${y} ${z}`);
+
+      flash.innerHTML = `
+        <a-ring
+          radius-inner="0.012"
+          radius-outer="0.055"
+          rotation="90 0 0"
+          material="
+            color: #ffffff;
+            transparent: true;
+            opacity: 0.95;
+            shader: flat
+          "
+          animation="
+            property: scale;
+            from: 0.3 0.3 0.3;
+            to: 2.2 2.2 2.2;
+            dur: 700;
+            easing: easeOutQuad;
+          "
+          animation__fade="
+            property: material.opacity;
+            from: 0.95;
+            to: 0;
+            dur: 700;
+            easing: easeOutQuad;
+          "
+        ></a-ring>
+
+        <a-plane
+          width="0.28"
+          height="0.018"
+          rotation="0 0 45"
+          material="
+            color: #fffbd1;
+            transparent: true;
+            opacity: 0.95;
+            shader: flat
+          "
+          animation="
+            property: scale;
+            from: 0.3 0.3 0.3;
+            to: 1.8 1.8 1.8;
+            dur: 700;
+            easing: easeOutQuad;
+          "
+          animation__fade="
+            property: material.opacity;
+            from: 0.95;
+            to: 0;
+            dur: 700;
+            easing: easeOutQuad;
+          "
+        ></a-plane>
+
+        <a-plane
+          width="0.28"
+          height="0.018"
+          rotation="0 0 -45"
+          material="
+            color: #ffffff;
+            transparent: true;
+            opacity: 0.9;
+            shader: flat
+          "
+          animation="
+            property: scale;
+            from: 0.3 0.3 0.3;
+            to: 1.8 1.8 1.8;
+            dur: 700;
+            easing: easeOutQuad;
+          "
+          animation__fade="
+            property: material.opacity;
+            from: 0.9;
+            to: 0;
+            dur: 700;
+            easing: easeOutQuad;
+          "
+        ></a-plane>
+      `;
+
+      starsContainer.appendChild(flash);
+
+      setTimeout(() => {
+        if (flash.parentNode) {
+          flash.parentNode.removeChild(flash);
+        }
+      }, 800);
+    }
+
+    // สร้างประกายวิ๊งเป็นระยะ
+    setInterval(() => {
+      const marker = document.querySelector('#hiro-marker');
+
+      // สร้างเฉพาะเมื่อ marker กำลังถูกมองเห็น
+      if (marker && marker.object3D.visible) {
+        createFlash();
+      }
+    }, 650);
+
+    /*
+      เพิ่มเอฟเฟกต์เมื่อพบ / สูญเสีย marker
+    */
+    const marker = document.querySelector('#hiro-marker');
+    const info = document.querySelector('#info');
+
+    marker.addEventListener('markerFound', () => {
+      info.textContent = '✨ พบ Hiro Marker — ดาวกำลังล้อมรอบโลก ✨';
+      info.style.background = 'rgba(20, 80, 140, 0.65)';
+    });
+
+    marker.addEventListener('markerLost', () => {
+      info.textContent = '📷 ส่องกล้องไปที่ Hiro Marker';
+      info.style.background = 'rgba(0, 0, 0, 0.55)';
+    });
+  </script>
+</body>
+</html>
